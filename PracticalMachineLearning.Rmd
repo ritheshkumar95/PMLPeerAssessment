@@ -1,0 +1,91 @@
+---
+title: "PracticalMachineLearningAssessment"
+output: html_document
+---
+
+## Practical Machine Learning : Peer Assessment
+
+### Rithesh Kumar
+
+### October 2014
+
+### Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+### Executive Summary
+
+The Weight Lifting Exercise Dataset was analysed to predict class of the exercise using the other predictors in the dataset. Initially, the data was preprocessed to remove to columns with large number of NA values. Next, nearZeroVar function was used to check if attributes with near zero variance was present. After preprocessing the data, model fitting was performed using Trees with 4-fold cross-validation. Since the out of sample accuracy turned out to be <50%, random forests were trained on the data, also with 4-fold cross-validation. An out of sample accuracy of 99% was obtained and hence this model was selected.
+
+
+### Loading And PreProcessing The Data
+
+It was analysed that certain columns had very large number of missing values.
+
+```{r}
+{
+     set.seed(1234)
+     library(caret,quietly=TRUE)
+     data <- read.csv("pml-training.csv",na.string=c("","NA","NULL"))
+     quiz <- read.csv("pml-testing.csv",na.string=c("","NA","NULL"))
+     table(sapply(data,function(x) sum(is.na(x))))
+}
+```
+
+These columns were removed to transform it into a clean dataset.
+
+The first 7 columns of the dataset are removed also, as they contain trivial parameters which do not aid in prediction of the class.
+
+Also nearZeroVar function is used to check if any column has near zero variance, as it affects the model training process.
+
+```{r}
+     cleanData <- data[,which(as.numeric(colSums(is.na(data)))==0)]
+     cleanData <- cleanData[,-c(1:7)] #First 7 Columns Of The dataset are removed
+     nearZeroVar(cleanData)
+```
+
+### Splitting The Data Into Training And Cross-Validation Sets
+```{r}
+     inTrain <- createDataPartition(cleanData$classe,p=0.7,list=FALSE)
+     training <- cleanData[inTrain,]
+     testing <- cleanData[-inTrain,]
+```
+
+### Model Fitting Using Trees
+
+```{r,cache=TRUE}
+     modFit <- train(classe~.,data=training,method="rpart",trControl = trainControl(method="cv",number=4,allowParallel=TRUE))
+     confusionMatrix(testing$classe,predict(modFit,testing))
+```
+
+Since the accuracy in the cross-validation set (Out of sample accuracy) is <50%, we try fitting a different model.
+
+### Model Fitting Using Random Forests
+
+```{r,cache=TRUE}
+     modFit <- train(classe~.,data=training,method="rf",trControl = trainControl(method="cv",number=4,allowParallel=TRUE))
+ confusionMatrix(testing$classe,predict(modFit,testing))
+```
+
+This model is accepted as the out-of sample accuracy (accuracy in the cross-validation set) is >90%.
+
+### Applying Selected Model To Test Set
+
+```{r}
+cleanTestData <- quiz[,which(as.numeric(colSums(is.na(data)))==0)] #Selecting Same Variables In Test Set As In The Training Set
+cleanTestData <- cleanTestData[,-c(1:7)] #First 7 Columns Of The dataset are removed
+answers <- predict(modFit,cleanTestData)
+print(answers)
+```
+
+### Creating Submission File
+
+```{r}
+n = length(answers)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(answers[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+```
+
+These results will be submitted for the assignment.
